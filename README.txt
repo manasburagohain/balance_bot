@@ -53,3 +53,12 @@ Got time constant
 LEFT motor parameters are within the acceptable range
 
 Motors passed all tests. You can proceed to controls. 
+
+
+---------------------------------------------------
+Inertia measurements
+L=1752.6mm 
+Jzz: d=125.08mm T = 2.555s 2.578s 2.585s
+Jyy: d=123.11mm T=3.823s 3.825s 3.815s
+Jxx: d=66.71mm T=5.955s 5.836s 5.889s
+m0 = 1097.5g

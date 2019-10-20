@@ -26,10 +26,10 @@ static rc_mpu_data_t data;
 static void __print_data(void){
         //rc_mpu_read_accel(&data);
         //rc_mpu_read_gyro(&data);
-        // printf("%6.1f %6.1f %6.1f\n",   data.fused_TaitBryan[TB_PITCH_X]*RAD_TO_DEG,\
+        // printf("%f %f %f\n",   data.fused_TaitBryan[TB_PITCH_X]*RAD_TO_DEG,\
         //                                 data.fused_TaitBryan[TB_ROLL_Y]*RAD_TO_DEG,\
         //                                 data.fused_TaitBryan[TB_YAW_Z]*RAD_TO_DEG);
-        printf("%6.1f %6.1f %6.1f \n",   data.dmp_TaitBryan[TB_PITCH_X]*RAD_TO_DEG,\
+        printf("%.1f %.1f %.1f\n",   data.dmp_TaitBryan[TB_PITCH_X]*RAD_TO_DEG,\
                                         data.dmp_TaitBryan[TB_ROLL_Y]*RAD_TO_DEG,\
                                         data.dmp_TaitBryan[TB_YAW_Z]*RAD_TO_DEG);
         //printf("accel: %f, %f, %f\n", data.accel[0], data.accel[1], data.accel[2]);
