@@ -24,12 +24,16 @@
 static rc_mpu_data_t data;
 
 static void __print_data(void){
+        //rc_mpu_read_accel(&data);
+        //rc_mpu_read_gyro(&data);
         // printf("%6.1f %6.1f %6.1f\n",   data.fused_TaitBryan[TB_PITCH_X]*RAD_TO_DEG,\
         //                                 data.fused_TaitBryan[TB_ROLL_Y]*RAD_TO_DEG,\
         //                                 data.fused_TaitBryan[TB_YAW_Z]*RAD_TO_DEG);
         printf("%6.1f %6.1f %6.1f \n",   data.dmp_TaitBryan[TB_PITCH_X]*RAD_TO_DEG,\
                                         data.dmp_TaitBryan[TB_ROLL_Y]*RAD_TO_DEG,\
                                         data.dmp_TaitBryan[TB_YAW_Z]*RAD_TO_DEG);
+        //printf("accel: %f, %f, %f\n", data.accel[0], data.accel[1], data.accel[2]);
+    	//printf("gyro: %f, %f, %f\n", data.gyro[0], data.gyro[1], data.gyro[2]);
 }
 
 FILE* f1;
@@ -78,17 +82,19 @@ int main(){
 
     rc_set_state(RUNNING);
     // struct rc_mpu_data_t data;
-    struct rc_mpu_config_t config = {3,21,2,0x68,1};
-    config.dmp_sample_rate = 200;
+    //struct rc_mpu_config_t config = {3,21,2,0x68,1};
+    rc_mpu_config_t config = rc_mpu_default_config();
+    config.i2c_bus = 2; //I2C_BUS;
+    config.gpio_interrupt_pin_chip = 3; //GPIO_INT_PIN_CHIP;
+    config.gpio_interrupt_pin = 21; //GPIO_INT_PIN_PIN;
+    config.dmp_sample_rate = 100;
+    config.dmp_fetch_accel_gyro=1;
+    config.enable_magnetometer = 1;
 
     rc_mpu_initialize_dmp(&data, config);
     rc_mpu_set_dmp_callback(&__print_data);
     while(rc_get_state()!=EXITING){
-        // rc_mpu_read_accel(&data);
-        // rc_mpu_read_gyro(&data);
-        // printf("accel: %f, %f, %f\n", data.accel[0], data.accel[1], data.accel[2]);
-    	// printf("gyro: %f, %f, %f\n", data.gyro[0], data.gyro[1], data.gyro[2]);
-        rc_nanosleep(1E9);
+        rc_nanosleep(1E5);
     }
 
 	// exit cleanly
