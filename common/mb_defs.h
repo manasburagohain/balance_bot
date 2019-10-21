@@ -34,4 +34,24 @@
 #define PRINTF_HZ                  10 // rate of print loop
 #define RC_CTL_HZ                  25 // rate of RC data update
 
+// inner loop controller 100hz
+#define D1_GAIN			1.05
+#define D1_ORDER		2
+#define D1_NUM			{-4.595, 8.114, -3.562}
+#define D1_DEN			{ 1.000, -1.695, 0.694}
+#define D1_NUM_LEN		3
+#define D1_DEN_LEN		3
+#define D1_SATURATION_TIMEOUT	0.4
+
+#define V_NOMINAL		12
+
+// other
+#define TIP_ANGLE		0.85
+#define START_ANGLE		0.3
+#define START_DELAY		0.4
+#define PICKUP_DETECTION_TIME	0.6
+#define ENABLE_POSITION_HOLD	1
+#define SOFT_START_SEC		0.7
+
+
 #endif

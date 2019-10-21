@@ -19,9 +19,12 @@
 #include <rc/pthread.h>
 #include <rc/encoder_eqep.h>
 #include <rc/time.h>
-
+#include <rc/math/filter.h>
+#include "../common/mb_defs.h"
 
 #include "balancebot.h"
+
+static rc_filter_t D1 = RC_FILTER_INITIALIZER;
 
 /*******************************************************************************
 * int main() 
@@ -71,6 +74,16 @@ int main(){
 		return -1;
 	};
 
+	double D1_num[] = D1_NUM;
+	double D1_den[] = D1_DEN;
+	if(rc_filter_alloc_from_arrays(&D1, DT, D1_num, D1_NUM_LEN, D1_den, D1_DEN_LEN)){
+		fprintf(stderr,"ERROR in rc_balance, failed to make filter D1\n");
+		return -1;
+	}
+	D1.gain = D1_GAIN;
+	rc_filter_enable_saturation(&D1, -1.0, 1.0);
+	rc_filter_enable_soft_start(&D1, SOFT_START_SEC);
+
     // make PID file to indicate your project is running
 	// due to the check made on the call to rc_kill_existing_process() above
 	// we can be fairly confident there is no PID file already and we can
@@ -96,7 +109,7 @@ int main(){
 	// set up mpu configuration
 	rc_mpu_config_t mpu_config = rc_mpu_default_config();
 	mpu_config.dmp_sample_rate = SAMPLE_RATE_HZ;
-	mpu_config.orient = ORIENTATION_Z_UP;
+	mpu_config.orient = ORIENTATION_Z_DOWN;
 
 	// now set up the imu for dmp interrupt operation
 	if(rc_mpu_initialize_dmp(&mpu_data, mpu_config)){
@@ -170,8 +183,30 @@ void balancebot_controller(){
 	// Read encoders
 	mb_state.left_encoder = rc_encoder_eqep_read(1);
 	mb_state.right_encoder = rc_encoder_eqep_read(2);
+    
+    double wheelAngleR = (rc_encoder_eqep_read(RIGHT_MOTOR) * 2.0 * M_PI) /(ENC_2_POL * GEAR_RATIO * ENCODER_RES);
+    double wheelAngleL = (rc_encoder_eqep_read(LEFT_MOTOR) * 2.0 * M_PI) /(ENC_1_POL * GEAR_RATIO * ENCODER_RES);
+
+    mb_state.phi = (wheelAngleL + wheelAngleR) / 2 + mb_state.theta;
+
+
+ //    if(0){
+	// 	if(fabs(setpoint.phi_dot) > 0.001) setpoint.phi += setpoint.phi_dot*DT;
+	// 	cstate.d2_u = rc_filter_march(&D2,setpoint.phi-cstate.phi);
+	// 	setpoint.theta = cstate.d2_u;
+	// }
+	// else setpoint.theta = 0.0;
+
+	D1.gain = D1_GAIN; //* V_NOMINAL/cstate.vBatt;
+	double d1_u = rc_filter_march(&D1,(0-mb_state.theta));
+
+	mb_state.left_cmd = MOT_1_POL * d1_u ;
+	mb_state.right_cmd = MOT_2_POL  * d1_u ;
+	rc_motor_set(LEFT_MOTOR, mb_state.left_cmd);
+	rc_motor_set(RIGHT_MOTOR, mb_state.right_cmd);
+
     // Update odometry 
- 
+ 	
 
     // Calculate controller outputs
     
