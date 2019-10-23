@@ -66,6 +66,11 @@ int main(){
 		return -1;
 	}
 
+	if(mb_motor_init()==-1){
+		fprintf(stderr,"failed to start initialize Motors\n");
+		return -1;
+	}
+
 	printf("initializing xbee... \n");
 	//initalize XBee Radio
 	int baudrate = BAUDRATE;
@@ -110,6 +115,13 @@ int main(){
 	rc_mpu_config_t mpu_config = rc_mpu_default_config();
 	mpu_config.dmp_sample_rate = SAMPLE_RATE_HZ;
 	mpu_config.orient = ORIENTATION_Z_DOWN;
+
+	if(!rc_mpu_is_gyro_calibrated()){
+		printf("Gyro not calibrated, automatically starting calibration routine\n");
+		printf("Let your MiP sit still on a firm surface\n");
+		rc_mpu_calibrate_gyro_routine(mpu_config);
+	}
+
 
 	// now set up the imu for dmp interrupt operation
 	if(rc_mpu_initialize_dmp(&mpu_data, mpu_config)){
@@ -176,6 +188,7 @@ int main(){
 *******************************************************************************/
 void balancebot_controller(){
 
+	static int inner_saturation_counter = 0;
 	//lock state mutex
 	pthread_mutex_lock(&state_mutex);
 	// Read IMU
@@ -198,12 +211,22 @@ void balancebot_controller(){
 	// else setpoint.theta = 0.0;
 
 	D1.gain = D1_GAIN; //* V_NOMINAL/cstate.vBatt;
-	double d1_u = rc_filter_march(&D1,(0-mb_state.theta));
+	double d1_u = rc_filter_march(&D1,(X_offset-mb_state.theta));
 
-	mb_state.left_cmd = MOT_1_POL * d1_u ;
-	mb_state.right_cmd = MOT_2_POL  * d1_u ;
-	rc_motor_set(LEFT_MOTOR, mb_state.left_cmd);
-	rc_motor_set(RIGHT_MOTOR, mb_state.right_cmd);
+	if(fabs(d1_u)>0.95) inner_saturation_counter++;
+	else inner_saturation_counter = 0;
+	// if saturate for a second, disarm for safety
+	if(inner_saturation_counter > (SAMPLE_RATE_HZ*D1_SATURATION_TIMEOUT)){
+		printf("inner loop controller saturated\n");
+		mb_motor_disable();
+		inner_saturation_counter = 0;
+		return;
+	}
+
+	mb_state.left_cmd =  d1_u ;
+	mb_state.right_cmd = d1_u ;
+	mb_motor_set(LEFT_MOTOR, -mb_state.left_cmd);
+	mb_motor_set(RIGHT_MOTOR, -mb_state.right_cmd);
 
     // Update odometry 
  	

@@ -36,9 +36,9 @@ int mb_motor_init(){
 *******************************************************************************/
 int mb_motor_init_freq(int pwm_freq_hz){
     
-    //printf("%d\n",rc_pwm_init(1,DEFAULT_PWM_FREQ));
+    rc_pwm_init(1,DEFAULT_PWM_FREQ);
     //printf("blah\n");
-    //printf("%d\n",rc_gpio_init(MOT_BRAKE_EN, GPIOHANDLE_REQUEST_OUTPUT));
+    rc_gpio_init(MOT_BRAKE_EN, GPIOHANDLE_REQUEST_OUTPUT);
     rc_gpio_init(MDIR1_CHIP, MDIR1_PIN, GPIOHANDLE_REQUEST_OUTPUT);
     rc_gpio_init(MDIR2_CHIP, MDIR2_PIN, GPIOHANDLE_REQUEST_OUTPUT);
     init_flag = 1;

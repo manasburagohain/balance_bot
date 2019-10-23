@@ -19,8 +19,8 @@
 #define MOT_BRAKE_EN            0,20  // gpio0.20  P9.41
 #define MOT_1_POL                   1 // polarity of motor 1
 #define MOT_2_POL                   -1 // polarity of motor 2
-#define ENC_1_POL                   -1 // polarity of encoder 1
-#define ENC_2_POL                   1 // polarity of encoder 2
+#define ENC_1_POL                   1 // polarity of encoder 1
+#define ENC_2_POL                   -1 // polarity of encoder 2
 #define MOT_1_CS                    39 // analog in of motor 1 current sense
 #define MOT_2_CS                    40 // analog in of motor 2 current sense
 #define GEAR_RATIO                  20.4 // gear ratio of motor
@@ -37,7 +37,7 @@
 // inner loop controller 100hz
 #define D1_GAIN			1.05
 #define D1_ORDER		2
-#define D1_NUM			{-4.595, 8.114, -3.562}
+#define D1_NUM			{-5.706, 10.18, -4.519}
 #define D1_DEN			{ 1.000, -1.695, 0.694}
 #define D1_NUM_LEN		3
 #define D1_DEN_LEN		3
@@ -52,6 +52,10 @@
 #define PICKUP_DETECTION_TIME	0.6
 #define ENABLE_POSITION_HOLD	1
 #define SOFT_START_SEC		0.7
+
+// Offset
+#define X_offset -0*3.14/180
+
 
 
 #endif
