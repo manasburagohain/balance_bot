@@ -35,9 +35,9 @@
 #define RC_CTL_HZ                  25 // rate of RC data update
 
 // inner loop controller 100hz
-#define D1_GAIN			1.05
+// #define D1_GAIN			1.05
 #define D1_ORDER		2
-#define D1_NUM			{-5.706, 10.18, -4.519}
+// #define D1_NUM			{-5.706, 10.18, -4.519}
 #define D1_DEN			{ 1.000, -1.695, 0.694}
 #define D1_NUM_LEN		3
 #define D1_DEN_LEN		3
@@ -54,7 +54,7 @@
 #define SOFT_START_SEC		0.7
 
 // Offset
-#define X_offset -0*3.14/180
+//#define X_offset -0*3.14/180
 
 
 

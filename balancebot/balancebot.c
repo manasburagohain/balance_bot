@@ -7,6 +7,8 @@
 *******************************************************************************/
 
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <rc/start_stop.h>
 #include <rc/adc.h>
 #include <rc/servo.h>
@@ -22,9 +24,10 @@
 #include <rc/math/filter.h>
 #include "../common/mb_defs.h"
 
-#include "balancebot.h"
 
+#include "balancebot.h"
 static rc_filter_t D1 = RC_FILTER_INITIALIZER;
+double X_offset;
 
 /*******************************************************************************
 * int main() 
@@ -79,7 +82,41 @@ int main(){
 		return -1;
 	};
 
-	double D1_num[] = D1_NUM;
+	
+	FILE *fptr;
+	fptr = fopen("../balancebot/params", "r");
+	if (fptr == NULL){
+		printf("params file not found\n");
+		return -1;
+	}
+	char str[7];
+	char name[20]; //trash
+
+	//Read in D1_GAIN
+	fgets(str, 7, fptr);
+	double D1_GAIN = atof(str);
+	fgets(name, 20, fptr);
+
+	//Read in D1_NUM
+	double D1_num[3];
+	fgets(str, 7, fptr);
+	D1_num[0] = atof(str);
+	fgets(str, 7, fptr);
+	D1_num[1] = atof(str);
+	fgets(str, 8, fptr);
+	D1_num[2] = atof(str);
+	fgets(name, 20, fptr);
+
+	//Read in X_offset
+	fgets(str, 3, fptr);
+	X_offset = atof(str)*3.14/180;
+	fclose(fptr);
+
+	printf("D1_GAIN: %f\n",D1_GAIN);
+	printf("D1_NUM: %f %f %f\n",D1_num[0],D1_num[1],D1_num[2]);
+	printf("X_offset: %f\n", X_offset);
+
+
 	double D1_den[] = D1_DEN;
 	if(rc_filter_alloc_from_arrays(&D1, DT, D1_num, D1_NUM_LEN, D1_den, D1_DEN_LEN)){
 		fprintf(stderr,"ERROR in rc_balance, failed to make filter D1\n");
@@ -210,7 +247,6 @@ void balancebot_controller(){
 	// }
 	// else setpoint.theta = 0.0;
 
-	D1.gain = D1_GAIN; //* V_NOMINAL/cstate.vBatt;
 	double d1_u = rc_filter_march(&D1,(X_offset-mb_state.theta));
 
 	if(fabs(d1_u)>0.95) inner_saturation_counter++;
