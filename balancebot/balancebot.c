@@ -27,6 +27,7 @@
 
 #include "balancebot.h"
 static rc_filter_t D1 = RC_FILTER_INITIALIZER;
+static rc_filter_t D2 = RC_FILTER_INITIALIZER;
 double X_offset;
 
 /*******************************************************************************
@@ -107,6 +108,16 @@ int main(){
 	D1_num[2] = atof(str);
 	fgets(name, 20, fptr);
 
+	//Read in D1_DEN
+	double D1_den[3];
+	fgets(str, 6, fptr);
+	D1_den[0] = atof(str);
+	fgets(str, 8, fptr);
+	D1_den[1] = atof(str);
+	fgets(str, 7, fptr);
+	D1_den[2] = atof(str);
+	fgets(name, 20, fptr);
+
 	//Read in X_offset
 	fgets(str, 3, fptr);
 	X_offset = atof(str)*3.14/180;
@@ -114,10 +125,9 @@ int main(){
 
 	printf("D1_GAIN: %f\n",D1_GAIN);
 	printf("D1_NUM: %f %f %f\n",D1_num[0],D1_num[1],D1_num[2]);
+	printf("D1_DEN: %f %f %f\n",D1_den[0],D1_den[1],D1_den[2]);
 	printf("X_offset: %f\n", X_offset);
 
-
-	double D1_den[] = D1_DEN;
 	if(rc_filter_alloc_from_arrays(&D1, DT, D1_num, D1_NUM_LEN, D1_den, D1_DEN_LEN)){
 		fprintf(stderr,"ERROR in rc_balance, failed to make filter D1\n");
 		return -1;
@@ -125,6 +135,17 @@ int main(){
 	D1.gain = D1_GAIN;
 	rc_filter_enable_saturation(&D1, -1.0, 1.0);
 	rc_filter_enable_soft_start(&D1, SOFT_START_SEC);
+
+	// set up D2
+	double D2_num[] = D2_NUM;
+	double D2_den[] = D2_DEN;
+	if(rc_filter_alloc_from_arrays(&D2, DT, D2_num, D2_NUM_LEN, D2_den, D2_DEN_LEN)){
+		fprintf(stderr,"ERROR in rc_balance, failed to make filter D2\n");
+		return -1;
+	}
+	D2.gain = D2_GAIN;
+	rc_filter_enable_saturation(&D2, -THETA_REF_MAX, THETA_REF_MAX);
+	rc_filter_enable_soft_start(&D2, SOFT_START_SEC);
 
     // make PID file to indicate your project is running
 	// due to the check made on the call to rc_kill_existing_process() above
@@ -209,6 +230,8 @@ int main(){
 	rc_led_cleanup();
 	rc_encoder_eqep_cleanup();
 	rc_remove_pid_file(); // remove pid file LAST 
+	rc_filter_free(&D1);
+	rc_filter_free(&D2);
 	return 0;
 }
 
@@ -247,7 +270,26 @@ void balancebot_controller(){
 	// }
 	// else setpoint.theta = 0.0;
 
-	double d1_u = rc_filter_march(&D1,(X_offset-mb_state.theta));
+	/************************************************************
+	* OUTER LOOP PHI controller D2
+	* Move the position setpoint based on phi_dot.
+	* Input to the controller is phi error (setpoint-state).
+	*************************************************************/
+
+	
+	double d2_u = rc_filter_march(&D2,X_offset-mb_state.theta);
+	// setpoint.theta = d2_u;
+
+	/************************************************************
+	* INNER LOOP ANGLE Theta controller D1
+	* Input to D1 is theta error (setpoint-state). Then scale the
+	* output u to compensate for changing battery voltage.
+	*************************************************************/
+	double d2_u_offset = d2_u-mb_state.theta;
+	if(d2_u_offset > 0) d2_u_offset += 0.01;
+	else d2_u_offset -= 0.01;
+	
+	double d1_u = rc_filter_march(&D1,d2_u_offset);
 
 	if(fabs(d1_u)>0.95) inner_saturation_counter++;
 	else inner_saturation_counter = 0;
@@ -355,6 +397,7 @@ void* printf_loop(void* ptr){
 			//Add Print stattements here, do not follow with /n
 			pthread_mutex_lock(&state_mutex);
 			printf("%7.3f  |", mb_state.theta);
+			printf("%7.3f  |", -mb_state.left_cmd);
 			printf("%7.3f  |", mb_state.phi);
 			printf("%7d  |", mb_state.left_encoder);
 			printf("%7d  |", mb_state.right_encoder);
