@@ -118,6 +118,34 @@ int main(){
 	D1_den[2] = atof(str);
 	fgets(name, 20, fptr);
 
+
+
+	//Read in D2_GAIN
+	fgets(str, 7, fptr);
+	double D2_GAIN = atof(str);
+	fgets(name, 20, fptr);
+
+	//Read in D2_NUM
+	double D2_num[3];
+	fgets(str, 7, fptr);
+	D2_num[0] = atof(str);
+	fgets(str, 9, fptr);
+	D2_num[1] = atof(str);
+	fgets(str, 8, fptr);
+	D2_num[2] = atof(str);
+	fgets(name, 20, fptr);
+
+	//Read in D2_DEN
+	double D2_den[3];
+	fgets(str, 7, fptr);
+	D2_den[0] = atof(str);
+	fgets(str, 9, fptr);
+	D2_den[1] = atof(str);
+	fgets(str, 8, fptr);
+	D2_den[2] = atof(str);
+	fgets(name, 20, fptr);
+
+
 	//Read in X_offset
 	fgets(str, 3, fptr);
 	X_offset = atof(str)*3.14/180;
@@ -126,6 +154,9 @@ int main(){
 	printf("D1_GAIN: %f\n",D1_GAIN);
 	printf("D1_NUM: %f %f %f\n",D1_num[0],D1_num[1],D1_num[2]);
 	printf("D1_DEN: %f %f %f\n",D1_den[0],D1_den[1],D1_den[2]);
+	printf("D2_GAIN: %f\n",D2_GAIN);
+	printf("D2_NUM: %f %f %f\n",D2_num[0],D2_num[1],D2_num[2]);
+	printf("D2_DEN: %f %f %f\n",D2_den[0],D2_den[1],D2_den[2]);
 	printf("X_offset: %f\n", X_offset);
 
 	if(rc_filter_alloc_from_arrays(&D1, DT, D1_num, D1_NUM_LEN, D1_den, D1_DEN_LEN)){
@@ -137,8 +168,8 @@ int main(){
 	rc_filter_enable_soft_start(&D1, SOFT_START_SEC);
 
 	// set up D2
-	double D2_num[] = D2_NUM;
-	double D2_den[] = D2_DEN;
+	// double D2_num[] = D2_NUM;
+	// double D2_den[] = D2_DEN;
 	if(rc_filter_alloc_from_arrays(&D2, DT, D2_num, D2_NUM_LEN, D2_den, D2_DEN_LEN)){
 		fprintf(stderr,"ERROR in rc_balance, failed to make filter D2\n");
 		return -1;
@@ -277,7 +308,7 @@ void balancebot_controller(){
 	*************************************************************/
 
 	
-	double d2_u = rc_filter_march(&D2,X_offset-mb_state.theta);
+	double d2_u = rc_filter_march(&D2,0-mb_state.phi);
 	// setpoint.theta = d2_u;
 
 	/************************************************************
@@ -285,11 +316,11 @@ void balancebot_controller(){
 	* Input to D1 is theta error (setpoint-state). Then scale the
 	* output u to compensate for changing battery voltage.
 	*************************************************************/
-	double d2_u_offset = d2_u-mb_state.theta;
-	if(d2_u_offset > 0) d2_u_offset += 0.01;
-	else d2_u_offset -= 0.01;
+	double d2_u_offset = -d2_u-mb_state.theta;
+	//if(d2_u_offset > 0) d2_u_offset += 0.01;
+	//else d2_u_offset -= 0.01;
 	
-	double d1_u = rc_filter_march(&D1,d2_u_offset);
+	double d1_u = rc_filter_march(&D1,X_offset+d2_u_offset);
 
 	if(fabs(d1_u)>0.95) inner_saturation_counter++;
 	else inner_saturation_counter = 0;
@@ -397,7 +428,7 @@ void* printf_loop(void* ptr){
 			//Add Print stattements here, do not follow with /n
 			pthread_mutex_lock(&state_mutex);
 			printf("%7.3f  |", mb_state.theta);
-			printf("%7.3f  |", -mb_state.left_cmd);
+			//printf("%7.3f  |", -mb_state.left_cmd);
 			printf("%7.3f  |", mb_state.phi);
 			printf("%7d  |", mb_state.left_encoder);
 			printf("%7d  |", mb_state.right_encoder);
