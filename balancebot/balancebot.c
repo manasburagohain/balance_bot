@@ -200,7 +200,7 @@ int main(){
 	// if it was started as a background process then don't bother
 	printf("starting print thread... \n");
 	pthread_t  printf_thread;
-	// rc_pthread_create(&printf_thread, printf_loop, (void*) NULL, SCHED_OTHER, 0);
+	rc_pthread_create(&printf_thread, printf_loop, (void*) NULL, SCHED_OTHER, 0);
 
 	// start control thread
 	printf("starting setpoint thread... \n");

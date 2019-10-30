@@ -73,7 +73,7 @@
 
 #define DSM_DRIVE_CH 3
 #define DSM_TURN_CH 4
-#define DSM_TURN_POL 1
+#define DSM_TURN_POL -1
 #define DSM_DRIVE_POL 1
 #define DSM_DEAD_ZONE 0.04
 #define DRIVE_RATE 21
