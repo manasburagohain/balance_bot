@@ -52,6 +52,12 @@
 #define D2_DEN_LEN		2
 #define THETA_REF_MAX		0.33
 
+// steering controller
+#define D3_KP			1.0
+#define D3_KI			0.0
+#define D3_KD			0.0
+#define STEERING_INPUT_MAX	0.5
+
 #define V_NOMINAL		12
 
 // other
@@ -65,6 +71,12 @@
 // Offset
 //#define X_offset -0*3.14/180
 
-
+#define DSM_DRIVE_CH 3
+#define DSM_TURN_CH 4
+#define DSM_TURN_POL 1
+#define DSM_DRIVE_POL 1
+#define DSM_DEAD_ZONE 0.04
+#define DRIVE_RATE 21
+#define TURN_RATE 8
 
 #endif

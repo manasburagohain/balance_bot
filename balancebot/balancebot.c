@@ -28,6 +28,7 @@
 #include "balancebot.h"
 static rc_filter_t D1 = RC_FILTER_INITIALIZER;
 static rc_filter_t D2 = RC_FILTER_INITIALIZER;
+static rc_filter_t D3 = RC_FILTER_INITIALIZER;
 double X_offset;
 
 /*******************************************************************************
@@ -58,6 +59,12 @@ int main(){
         fprintf(stderr,"ERROR: failed to initialize eqep encoders\n");
         return -1;
     }
+
+	// start dsm listener
+	if(rc_dsm_init()==-1){
+			fprintf(stderr,"failed to start initialize DSM\n");
+			return -1;
+	}
 
     // initialize adc
     if(rc_adc_init()==-1){
@@ -178,6 +185,11 @@ int main(){
 	rc_filter_enable_saturation(&D2, -THETA_REF_MAX, THETA_REF_MAX);
 	rc_filter_enable_soft_start(&D2, SOFT_START_SEC);
 
+	if(rc_filter_pid(&D3, D3_KP, D3_KI, D3_KD, 4*DT, DT)){
+		fprintf(stderr,"ERROR in rc_balance, failed to make steering controller\n");
+		return -1;
+	}
+	rc_filter_enable_saturation(&D3, -STEERING_INPUT_MAX, STEERING_INPUT_MAX);
     // make PID file to indicate your project is running
 	// due to the check made on the call to rc_kill_existing_process() above
 	// we can be fairly confident there is no PID file already and we can
@@ -188,7 +200,7 @@ int main(){
 	// if it was started as a background process then don't bother
 	printf("starting print thread... \n");
 	pthread_t  printf_thread;
-	rc_pthread_create(&printf_thread, printf_loop, (void*) NULL, SCHED_OTHER, 0);
+	// rc_pthread_create(&printf_thread, printf_loop, (void*) NULL, SCHED_OTHER, 0);
 
 	// start control thread
 	printf("starting setpoint thread... \n");
@@ -218,6 +230,9 @@ int main(){
 		return -1;
 	}
 
+	mb_setpoints.manual_ctl = 1;
+	mb_setpoints.phi   = 0.0;
+	mb_setpoints.gamma = 0.0;
 	//rc_nanosleep(5E9); // wait for imu to stabilize
 
 	//initialize state mutex
@@ -263,6 +278,7 @@ int main(){
 	rc_remove_pid_file(); // remove pid file LAST 
 	rc_filter_free(&D1);
 	rc_filter_free(&D2);
+	rc_filter_free(&D3);
 	return 0;
 }
 
@@ -292,7 +308,7 @@ void balancebot_controller(){
     double wheelAngleL = (rc_encoder_eqep_read(LEFT_MOTOR) * 2.0 * M_PI) /(ENC_1_POL * GEAR_RATIO * ENCODER_RES);
 
     mb_state.phi = (wheelAngleL + wheelAngleR) / 2 + mb_state.theta;
-
+	mb_state.gamma = (wheelAngleR-wheelAngleL) * ((WHEEL_DIAMETER/2)/WHEEL_BASE);
 
  //    if(0){
 	// 	if(fabs(setpoint.phi_dot) > 0.001) setpoint.phi += setpoint.phi_dot*DT;
@@ -308,8 +324,9 @@ void balancebot_controller(){
 	*************************************************************/
 
 	
-	double d2_u = rc_filter_march(&D2,0-mb_state.phi);
-	// setpoint.theta = d2_u;
+	//double d2_u = rc_filter_march(&D2,0-mb_state.phi);
+	if(fabs(mb_setpoints.fwd_velocity) > 0.001) mb_setpoints.phi += mb_setpoints.fwd_velocity *DT;
+	double d2_u = rc_filter_march(&D2,mb_setpoints.phi-mb_state.phi);
 
 	/************************************************************
 	* INNER LOOP ANGLE Theta controller D1
@@ -332,10 +349,16 @@ void balancebot_controller(){
 		return;
 	}
 
-	mb_state.left_cmd =  d1_u ;
-	mb_state.right_cmd = d1_u ;
-	mb_motor_set(LEFT_MOTOR, -mb_state.left_cmd);
-	mb_motor_set(RIGHT_MOTOR, -mb_state.right_cmd);
+	/**********************************************************
+	* gama (steering) controller D3
+	* move the setpoint gamma based on user input like phi
+	***********************************************************/
+	
+	if(fabs(mb_setpoints.turn_velocity)>0.0001) mb_setpoints.gamma += mb_setpoints.turn_velocity * DT;
+	double d3_u = rc_filter_march(&D3,mb_setpoints.gamma - mb_state.gamma);
+
+	/**********************************************************/
+
 
     // Update odometry 
  	
@@ -344,10 +367,20 @@ void balancebot_controller(){
     
     if(!mb_setpoints.manual_ctl){
     	//send motor commands
-   	}
+		mb_state.left_cmd =  d1_u;
+		mb_state.right_cmd = d1_u;
+		mb_motor_set(LEFT_MOTOR, -mb_state.left_cmd);
+		mb_motor_set(RIGHT_MOTOR, -mb_state.right_cmd);
+
+	}
 
     if(mb_setpoints.manual_ctl){
     	//send motor commands
+		mb_state.left_cmd =  d1_u + d3_u;
+		mb_state.right_cmd = d1_u - d3_u;
+		mb_motor_set(LEFT_MOTOR, -mb_state.left_cmd);
+		mb_motor_set(RIGHT_MOTOR, -mb_state.right_cmd);
+
    	}
 
 	XBEE_getData();
@@ -375,13 +408,41 @@ void balancebot_controller(){
 *
 *******************************************************************************/
 void* setpoint_control_loop(void* ptr){
+	double drive_stick, turn_stick; // input sticks
+
 
 	while(1){
+		// sleep at beginning of loop so we can use the 'continue' statement
+		rc_usleep(1000000/SAMPLE_RATE_HZ);
 
 		if(rc_dsm_is_new_data()){
-				// TODO: Handle the DSM data from the Spektrum radio reciever
-				// You may should implement switching between manual and autonomous mode
-				// using channel 5 of the DSM data.
+			// TODO: Handle the DSM data from the Spektrum radio reciever
+			// You may should implement switching between manual and autonomous mode
+			// using channel 5 of the DSM data.
+			// Read normalized (+-1) inputs from RC radio stick and multiply by
+			// polarity setting so positive stick means positive setpoint
+			turn_stick  = rc_dsm_ch_normalized(DSM_TURN_CH) * DSM_TURN_POL;
+			drive_stick = rc_dsm_ch_normalized(DSM_DRIVE_CH)* DSM_DRIVE_POL;
+
+			// saturate the inputs to avoid possible erratic behavior
+			//rc_saturate_double(&drive_stick,-1,1);
+			//rc_saturate_double(&turn_stick,-1,1);
+
+			// use a small deadzone to prevent slow drifts in position
+			if(fabs(drive_stick)<DSM_DEAD_ZONE) drive_stick = 0.0;
+			if(fabs(turn_stick)<DSM_DEAD_ZONE)  turn_stick  = 0.0;
+			//printf("Stick: %f %f\n", drive_stick, turn_stick);
+
+			// translate normalized user input to real setpoint values
+			
+			mb_setpoints.fwd_velocity   = DRIVE_RATE * drive_stick;
+			mb_setpoints.turn_velocity =  TURN_RATE * turn_stick;
+			//printf("Velocity: %f %f\n", mb_setpoints.fwd_velocity, mb_setpoints.turn_velocity);
+		}
+		else if(rc_dsm_is_connection_active()==0){
+			mb_setpoints.fwd_velocity = 0;
+			mb_setpoints.turn_velocity = 0;
+			continue;
 		}
 	 	rc_nanosleep(1E9 / RC_CTL_HZ);
 	}
@@ -412,8 +473,8 @@ void* printf_loop(void* ptr){
 			printf("    φ    |");
 			printf("  L Enc  |");
 			printf("  R Enc  |");
-			printf("    X    |");
-			printf("    Y    |");
+			printf("  Fwd V  |");
+			printf("  Turn V |");
 			printf("    ψ    |");
 
 			printf("\n");
@@ -432,8 +493,8 @@ void* printf_loop(void* ptr){
 			printf("%7.3f  |", mb_state.phi);
 			printf("%7d  |", mb_state.left_encoder);
 			printf("%7d  |", mb_state.right_encoder);
-			printf("%7.3f  |", mb_state.opti_x);
-			printf("%7.3f  |", mb_state.opti_y);
+			printf("%7.3f  |", mb_setpoints.fwd_velocity);
+			printf("%7.3f  |", mb_setpoints.turn_velocity);
 			printf("%7.3f  |", mb_state.opti_yaw);
 			pthread_mutex_unlock(&state_mutex);
 			fflush(stdout);
