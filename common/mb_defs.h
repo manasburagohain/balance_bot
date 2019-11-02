@@ -79,4 +79,6 @@
 #define DRIVE_RATE 21
 #define TURN_RATE 8
 
+// Used in odometry for Gyrodometry
+#define DGO 0.09 //5 degree difference
 #endif

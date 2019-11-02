@@ -233,6 +233,11 @@ int main(){
 	mb_setpoints.manual_ctl = 1;
 	mb_setpoints.phi   = 0.0;
 	mb_setpoints.gamma = 0.0;
+
+	// initialize mb_state
+	mb_state.left_encoder = 0;
+	mb_state.right_encoder = 0;
+	mb_state.gamma = mpu_data.dmp_TaitBryan[TB_YAW_Z];
 	//rc_nanosleep(5E9); // wait for imu to stabilize
 
 	//initialize state mutex
@@ -300,9 +305,15 @@ void balancebot_controller(){
 	pthread_mutex_lock(&state_mutex);
 	// Read IMU
 	mb_state.theta = mpu_data.dmp_TaitBryan[TB_PITCH_X];
-	// Read encoders
-	mb_state.left_encoder = rc_encoder_eqep_read(1);
-	mb_state.right_encoder = rc_encoder_eqep_read(2);
+	mb_state.dgamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z] - mb_state.gamma;
+	mb_state.gamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z];
+
+	mb_state.d_left = rc_encoder_eqep_read(1)- mb_state.left_encoder;
+	mb_state.d_right = rc_encoder_eqep_read(2)- mb_state.right_encoder;
+
+	// Read encoders, changed to encoder values since last readings
+	mb_state.left_encoder = rc_encoder_eqep_read(LEFT_MOTOR) ;
+	mb_state.right_encoder = rc_encoder_eqep_read(RIGHT_MOTOR);
     
     double wheelAngleR = (rc_encoder_eqep_read(RIGHT_MOTOR) * 2.0 * M_PI) /(ENC_2_POL * GEAR_RATIO * ENCODER_RES);
     double wheelAngleL = (rc_encoder_eqep_read(LEFT_MOTOR) * 2.0 * M_PI) /(ENC_1_POL * GEAR_RATIO * ENCODER_RES);
@@ -310,20 +321,12 @@ void balancebot_controller(){
     mb_state.phi = (wheelAngleL + wheelAngleR) / 2 + mb_state.theta;
 	mb_state.gamma = (wheelAngleR-wheelAngleL) * ((WHEEL_DIAMETER/2)/WHEEL_BASE);
 
- //    if(0){
-	// 	if(fabs(setpoint.phi_dot) > 0.001) setpoint.phi += setpoint.phi_dot*DT;
-	// 	cstate.d2_u = rc_filter_march(&D2,setpoint.phi-cstate.phi);
-	// 	setpoint.theta = cstate.d2_u;
-	// }
-	// else setpoint.theta = 0.0;
 
 	/************************************************************
 	* OUTER LOOP PHI controller D2
 	* Move the position setpoint based on phi_dot.
 	* Input to the controller is phi error (setpoint-state).
 	*************************************************************/
-
-	
 	//double d2_u = rc_filter_march(&D2,0-mb_state.phi);
 	if(fabs(mb_setpoints.fwd_velocity) > 0.001) mb_setpoints.phi += mb_setpoints.fwd_velocity *DT;
 	double d2_u = rc_filter_march(&D2,mb_setpoints.phi-mb_state.phi);
@@ -358,10 +361,8 @@ void balancebot_controller(){
 	double d3_u = rc_filter_march(&D3,mb_setpoints.gamma - mb_state.gamma);
 
 	/**********************************************************/
-
-
     // Update odometry 
- 	
+ 	mb_odometry_update(&mb_odometry, &mb_state);
 
     // Calculate controller outputs
     
@@ -398,6 +399,24 @@ void balancebot_controller(){
     pthread_mutex_unlock(&state_mutex);
 
 }
+
+/*******************************************************************************
+*  For odometry testing, actually useless
+*
+*
+ void balancebot_controller(){
+	mb_state.theta = mpu_data.dmp_TaitBryan[TB_PITCH_X];
+	mb_state.dgamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z] - mb_state.gamma;
+	mb_state.gamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z];
+
+	// Read encoders, changed to encoder values since last readings
+	mb_state.d_left = rc_encoder_eqep_read(1)- mb_state.left_encoder;
+	mb_state.d_right = rc_encoder_eqep_read(2)- mb_state.right_encoder;
+	mb_state.left_encoder = rc_encoder_eqep_read(1);
+	mb_state.right_encoder = rc_encoder_eqep_read(2);
+	mb_odometry_update(&mb_odometry, &mb_state);
+ }
+*******************************************************************************/
 
 
 /*******************************************************************************
@@ -467,7 +486,7 @@ void* printf_loop(void* ptr){
 		// check if this is the first time since being paused
 		if(new_state==RUNNING && last_state!=RUNNING){
 			printf("\nRUNNING: Hold upright to balance.\n");
-			printf("                 SENSORS               |            MOCAP            |");
+			printf("                 SENSORS               |      COMMAND      |          Odometry           |");
 			printf("\n");
 			printf("    θ    |");
 			printf("    φ    |");
@@ -475,8 +494,9 @@ void* printf_loop(void* ptr){
 			printf("  R Enc  |");
 			printf("  Fwd V  |");
 			printf("  Turn V |");
-			printf("    ψ    |");
-
+			printf("    x    |");
+			printf("    y    |");
+			printf("  orient |");
 			printf("\n");
 		}
 		else if(new_state==PAUSED && last_state!=PAUSED){
@@ -495,7 +515,10 @@ void* printf_loop(void* ptr){
 			printf("%7d  |", mb_state.right_encoder);
 			printf("%7.3f  |", mb_setpoints.fwd_velocity);
 			printf("%7.3f  |", mb_setpoints.turn_velocity);
-			printf("%7.3f  |", mb_state.opti_yaw);
+			printf("%7.3f  |", mb_odometry.x);
+			printf("%7.3f  |", mb_odometry.y);
+			printf("%7.3f  |", mb_odometry.gamma);
+
 			pthread_mutex_unlock(&state_mutex);
 			fflush(stdout);
 		}
