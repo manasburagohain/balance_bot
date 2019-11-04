@@ -23,8 +23,9 @@ void mb_odometry_update(mb_odometry_t* mb_odometry, mb_state_t* mb_state){
     //printf("Gamma: %f", dgamma);
 
     //Gyrodometry: if the difference of orientation change between gyro and encoder calculation is large, then trust gyro
-    if (abs(mb_state->dgamma_gyro - dgamma) > DGO){
-        dgamma = mb_state->dgamma_gyro;
+    if (fabs(-mb_state->dgamma_gyro - dgamma) > DGO){
+        printf("Gyro: %f, encoder: %f\n", -mb_state->dgamma_gyro, dgamma);
+        dgamma = -mb_state->dgamma_gyro;
     }
 
     mb_odometry->gamma += dgamma;

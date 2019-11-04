@@ -152,6 +152,14 @@ int main(){
 	D2_den[2] = atof(str);
 	fgets(name, 20, fptr);
 
+	double goal[3];
+	fgets(str, 7, fptr);
+	goal[0] = atof(str);
+	fgets(str, 9, fptr);
+	goal[1] = atof(str);
+	fgets(str, 8, fptr);
+	goal[2] = atof(str);
+
 
 	//Read in X_offset
 	fgets(str, 3, fptr);
@@ -165,6 +173,7 @@ int main(){
 	printf("D2_NUM: %f %f %f\n",D2_num[0],D2_num[1],D2_num[2]);
 	printf("D2_DEN: %f %f %f\n",D2_den[0],D2_den[1],D2_den[2]);
 	printf("X_offset: %f\n", X_offset);
+	printf("goal position: %f %f %f\n",goal[0],goal[1],goal[2]);
 
 	if(rc_filter_alloc_from_arrays(&D1, DT, D1_num, D1_NUM_LEN, D1_den, D1_DEN_LEN)){
 		fprintf(stderr,"ERROR in rc_balance, failed to make filter D1\n");
@@ -203,10 +212,13 @@ int main(){
 	rc_pthread_create(&printf_thread, printf_loop, (void*) NULL, SCHED_OTHER, 0);
 
 	// start control thread
-	printf("starting setpoint thread... \n");
-	pthread_t  setpoint_control_thread;
-	rc_pthread_create(&setpoint_control_thread, setpoint_control_loop, (void*) NULL, SCHED_FIFO, 50);
-
+	//printf("starting setpoint thread... \n");
+	//pthread_t  setpoint_control_thread;
+	// rc_pthread_create(&setpoint_control_thread, setpoint_control_loop, (void*) NULL, SCHED_FIFO, 50);
+	
+	printf("starting drive square thread");
+	pthread_t drive_square_control_thread;
+	rc_pthread_create(&drive_square_control_thread, drive_square_control_loop,  (void*) NULL, SCHED_FIFO, 50);
 
 	// TODO: start motion capture message recieve thread
 
@@ -305,7 +317,7 @@ void balancebot_controller(){
 	pthread_mutex_lock(&state_mutex);
 	// Read IMU
 	mb_state.theta = mpu_data.dmp_TaitBryan[TB_PITCH_X];
-	mb_state.dgamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z] - mb_state.gamma;
+	mb_state.dgamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z] - mb_state.gamma_gyro;
 	mb_state.gamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z];
 
 	mb_state.d_left = rc_encoder_eqep_read(1)- mb_state.left_encoder;
@@ -406,7 +418,7 @@ void balancebot_controller(){
 *
  void balancebot_controller(){
 	mb_state.theta = mpu_data.dmp_TaitBryan[TB_PITCH_X];
-	mb_state.dgamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z] - mb_state.gamma;
+	mb_state.dgamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z] - mb_state.gamma_gyro;
 	mb_state.gamma_gyro = mpu_data.dmp_TaitBryan[TB_YAW_Z];
 
 	// Read encoders, changed to encoder values since last readings
@@ -471,6 +483,42 @@ void* setpoint_control_loop(void* ptr){
 
 
 
+void* drive_square_control_loop(void* ptr){
+	double Vp = 2.5;
+	double V = 1.5;
+	double Vt = 0.5;
+
+	while(1){
+		// sleep at beginning of loop so we can use the 'continue' statement
+		rc_usleep(1000000/SAMPLE_RATE_HZ);
+		if(fabs(mb_odometry.x)<0.8){
+			mb_setpoints.fwd_velocity   = V;
+			mb_setpoints.turn_velocity =  0;
+		}
+		else if(fabs(mb_odometry.gamma + M_PI/2)>0.1){
+			//mb_setpoints.fwd_velocity = Vp * (1-mb_odometry.x);
+			mb_setpoints.turn_velocity = -Vt;
+		}
+		else if(fabs(mb_odometry.gamma + M_PI/2)<0.1){
+			printf("set point reached %f.\n",(mb_odometry.gamma + M_PI/2));
+			mb_setpoints.turn_velocity = 0;
+			mb_setpoints.fwd_velocity = 0;
+			mb_odometry.x = 0;
+			mb_odometry.y = 0;
+			mb_odometry.gamma = mb_odometry.gamma + M_PI/2;
+		}
+		// printf("Turn %f\n", -(mb_odometry.gamma + M_PI/2));
+		//printf("Velocity: %f %f\n", mb_setpoints.fwd_velocity, mb_setpoints.turn_velocity);
+
+	 	rc_nanosleep(1E9 / RC_CTL_HZ);
+	}
+	return NULL;
+}
+
+
+
+
+
 /*******************************************************************************
 * printf_loop() 
 *
@@ -518,7 +566,7 @@ void* printf_loop(void* ptr){
 			printf("%7.3f  |", mb_odometry.x);
 			printf("%7.3f  |", mb_odometry.y);
 			printf("%7.3f  |", mb_odometry.gamma);
-
+			// printf("\n");
 			pthread_mutex_unlock(&state_mutex);
 			fflush(stdout);
 		}
