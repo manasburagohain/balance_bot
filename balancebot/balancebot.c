@@ -216,9 +216,13 @@ int main(){
 	//pthread_t  setpoint_control_thread;
 	// rc_pthread_create(&setpoint_control_thread, setpoint_control_loop, (void*) NULL, SCHED_FIFO, 50);
 	
-	printf("starting drive square thread");
-	pthread_t drive_square_control_thread;
-	rc_pthread_create(&drive_square_control_thread, drive_square_control_loop,  (void*) NULL, SCHED_FIFO, 50);
+	// printf("starting drive square thread");
+	// pthread_t drive_square_control_thread;
+	// rc_pthread_create(&drive_square_control_thread, drive_square_control_loop,  (void*) NULL, SCHED_FIFO, 50);
+
+	printf("starting race thread");
+	pthread_t race_thread;
+	rc_pthread_create(&race_thread, race,  (void*) NULL, SCHED_FIFO, 50);
 
 	// TODO: start motion capture message recieve thread
 
@@ -515,6 +519,38 @@ void* drive_square_control_loop(void* ptr){
 	return NULL;
 }
 
+void* race(void* ptr)
+{
+	double Vp = 11.8;
+	double V = 5;
+	double Vt = 0.5;
+	while(1){
+		// sleep at beginning of loop so we can use the 'continue' statement
+		rc_usleep(1000000/SAMPLE_RATE_HZ);
+		if(fabs(mb_odometry.x)<8){
+			mb_setpoints.fwd_velocity   = 3.7*mb_odometry.x + 5;
+			mb_setpoints.turn_velocity =  0;
+		}
+		else if(fabs(mb_odometry.x)>8 && fabs(mb_odometry.x)<11){
+			mb_setpoints.fwd_velocity = Vp * (11-mb_odometry.x);
+			mb_setpoints.turn_velocity = 0;
+		}
+		else{
+			mb_setpoints.fwd_velocity = 0;
+			mb_setpoints.turn_velocity = 0;
+		}
+		// else if(fabs(mb_odometry.x)>10)
+		// {
+		// 	mb_setpoints.fwd_velocity = Vp;
+		// 	mb_setpoints.turn_velocity = 0;
+		// }
+		// printf("Turn %f\n", -(mb_odometry.gamma + M_PI/2));
+		//printf("Velocity: %f %f\n", mb_setpoints.fwd_velocity, mb_setpoints.turn_velocity);
+
+	 	rc_nanosleep(1E9 / RC_CTL_HZ);
+	}
+	return NULL;
+}
 
 
 

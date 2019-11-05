@@ -35,7 +35,7 @@ void balancebot_controller();
 //threads
 void* setpoint_control_loop(void* ptr);
 void* drive_square_control_loop(void* ptr);
-
+void* race(void* ptr);
 void* printf_loop(void* ptr);
 
 #endif
