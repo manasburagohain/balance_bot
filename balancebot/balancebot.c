@@ -212,8 +212,8 @@ int main(){
 	rc_pthread_create(&printf_thread, printf_loop, (void*) NULL, SCHED_OTHER, 0);
 
 	// start control thread
-	//printf("starting setpoint thread... \n");
-	//pthread_t  setpoint_control_thread;
+	// printf("starting setpoint thread... \n");
+	// pthread_t  setpoint_control_thread;
 	// rc_pthread_create(&setpoint_control_thread, setpoint_control_loop, (void*) NULL, SCHED_FIFO, 50);
 	
 	// printf("starting drive square thread");
@@ -521,31 +521,45 @@ void* drive_square_control_loop(void* ptr){
 
 void* race(void* ptr)
 {
-	double Vp = 11.8;
-	double V = 5;
-	double Vt = 0.5;
+	// double Vp = 11.8;
+	// double V = 5;
+	// double Vt = 0.5;
 	while(1){
 		// sleep at beginning of loop so we can use the 'continue' statement
 		rc_usleep(1000000/SAMPLE_RATE_HZ);
-		if(fabs(mb_odometry.x)<8){
-			mb_setpoints.fwd_velocity   = 3.7*mb_odometry.x + 5;
+		// if(fabs(mb_odometry.x)<10){
+		// 	mb_setpoints.fwd_velocity   = 1.5*mb_odometry.x + 15;
+		// 	mb_setpoints.turn_velocity =  0;
+		// }
+		// else if(fabs(mb_odometry.x)>10 && fabs(mb_odometry.x)<11.5){
+		// 	mb_setpoints.fwd_velocity = 20.0 * (11.5-mb_odometry.x);
+		// 	mb_setpoints.turn_velocity = 0;
+		// }
+		// else{
+		// 	mb_setpoints.fwd_velocity = 0;
+		// 	mb_setpoints.turn_velocity = 0;
+		// }
+		double xhat = 8;
+		double a = 0;
+		double b = 0;
+		double V0 = 10;
+		double L = 11;
+		double Vmax = 28;
+		if(fabs(mb_odometry.x)<xhat){
+			a = (Vmax - V0)/sqrt(xhat);
+			mb_setpoints.fwd_velocity   = a*sqrt(mb_odometry.x) + V0;
 			mb_setpoints.turn_velocity =  0;
 		}
-		else if(fabs(mb_odometry.x)>8 && fabs(mb_odometry.x)<11){
-			mb_setpoints.fwd_velocity = Vp * (11-mb_odometry.x);
+		else if(fabs(mb_odometry.x)>xhat && fabs(mb_odometry.x)<L){
+			b = Vmax/sqrt(L-xhat);
+			mb_setpoints.fwd_velocity = b * sqrt(L-mb_odometry.x);
 			mb_setpoints.turn_velocity = 0;
 		}
 		else{
 			mb_setpoints.fwd_velocity = 0;
 			mb_setpoints.turn_velocity = 0;
 		}
-		// else if(fabs(mb_odometry.x)>10)
-		// {
-		// 	mb_setpoints.fwd_velocity = Vp;
-		// 	mb_setpoints.turn_velocity = 0;
-		// }
-		// printf("Turn %f\n", -(mb_odometry.gamma + M_PI/2));
-		//printf("Velocity: %f %f\n", mb_setpoints.fwd_velocity, mb_setpoints.turn_velocity);
+
 
 	 	rc_nanosleep(1E9 / RC_CTL_HZ);
 	}

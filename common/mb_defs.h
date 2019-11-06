@@ -55,7 +55,7 @@
 // steering controller
 #define D3_KP			1.0
 #define D3_KI			0.0
-#define D3_KD			0.0
+#define D3_KD			0.02
 #define STEERING_INPUT_MAX	0.5
 
 #define V_NOMINAL		12
@@ -76,8 +76,8 @@
 #define DSM_TURN_POL -1
 #define DSM_DRIVE_POL 1
 #define DSM_DEAD_ZONE 0.04
-#define DRIVE_RATE 21
-#define TURN_RATE 8
+#define DRIVE_RATE 10
+#define TURN_RATE 4
 
 // Used in odometry for Gyrodometry
 #define DGO 0.09 //5 degree difference
