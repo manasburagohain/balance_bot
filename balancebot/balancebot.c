@@ -179,13 +179,26 @@ int main(){
 		fprintf(stderr,"ERROR in rc_balance, failed to make filter D1\n");
 		return -1;
 	}
+	// if(rc_filter_pid(&D1, D1_KP, D1_KI, D1_KD, D1_WC, DT)){
+	// 	fprintf(stderr,"ERROR in rc_balance, failed to make steering controller\n");
+	// 	return -1;
+	// }
 	D1.gain = D1_GAIN;
 	rc_filter_enable_saturation(&D1, -1.0, 1.0);
 	rc_filter_enable_soft_start(&D1, SOFT_START_SEC);
 
+	// if(rc_filter_pid(&D2, D2_KP, D2_KI, D2_KD, D2_WC, DT)){
+	// 	fprintf(stderr,"ERROR in rc_balance, failed to make steering controller\n");
+	// 	return -1;
+	// }
+	// D2.gain = D2_GAIN;
+	// rc_filter_enable_saturation(&D2, -THETA_REF_MAX, THETA_REF_MAX);
+	// rc_filter_enable_soft_start(&D2, SOFT_START_SEC);
+
 	// set up D2
-	// double D2_num[] = D2_NUM;
-	// double D2_den[] = D2_DEN;
+	// double D2_num[] = D2_NUM;	
+
+	//double D2_den[] = D2_DEN;
 	if(rc_filter_alloc_from_arrays(&D2, DT, D2_num, D2_NUM_LEN, D2_den, D2_DEN_LEN)){
 		fprintf(stderr,"ERROR in rc_balance, failed to make filter D2\n");
 		return -1;
@@ -211,18 +224,18 @@ int main(){
 	pthread_t  printf_thread;
 	rc_pthread_create(&printf_thread, printf_loop, (void*) NULL, SCHED_OTHER, 0);
 
-	// start control thread
-	// printf("starting setpoint thread... \n");
-	// pthread_t  setpoint_control_thread;
-	// rc_pthread_create(&setpoint_control_thread, setpoint_control_loop, (void*) NULL, SCHED_FIFO, 50);
+	//start control thread
+	printf("starting setpoint thread... \n");
+	pthread_t  setpoint_control_thread;
+	rc_pthread_create(&setpoint_control_thread, setpoint_control_loop, (void*) NULL, SCHED_FIFO, 50);
 	
 	// printf("starting drive square thread");
 	// pthread_t drive_square_control_thread;
 	// rc_pthread_create(&drive_square_control_thread, drive_square_control_loop,  (void*) NULL, SCHED_FIFO, 50);
 
-	printf("starting race thread");
-	pthread_t race_thread;
-	rc_pthread_create(&race_thread, race,  (void*) NULL, SCHED_FIFO, 50);
+	// printf("starting race thread");
+	// pthread_t race_thread;
+	// rc_pthread_create(&race_thread, race,  (void*) NULL, SCHED_FIFO, 50);
 
 	// TODO: start motion capture message recieve thread
 
@@ -488,9 +501,9 @@ void* setpoint_control_loop(void* ptr){
 
 
 void* drive_square_control_loop(void* ptr){
-	double Vp = 2.5;
-	double V = 1.5;
-	double Vt = 0.5;
+	// double Vp = 2.5;
+	double V = 2.5;
+	double Vt = 1.0;
 
 	while(1){
 		// sleep at beginning of loop so we can use the 'continue' statement
@@ -499,11 +512,11 @@ void* drive_square_control_loop(void* ptr){
 			mb_setpoints.fwd_velocity   = V;
 			mb_setpoints.turn_velocity =  0;
 		}
-		else if(fabs(mb_odometry.gamma + M_PI/2)>0.1){
+		else if(fabs(mb_odometry.gamma + M_PI/2)>0.05){
 			//mb_setpoints.fwd_velocity = Vp * (1-mb_odometry.x);
 			mb_setpoints.turn_velocity = -Vt;
 		}
-		else if(fabs(mb_odometry.gamma + M_PI/2)<0.1){
+		else if(fabs(mb_odometry.gamma + M_PI/2)<0.05){
 			printf("set point reached %f.\n",(mb_odometry.gamma + M_PI/2));
 			mb_setpoints.turn_velocity = 0;
 			mb_setpoints.fwd_velocity = 0;
@@ -539,12 +552,12 @@ void* race(void* ptr)
 		// 	mb_setpoints.fwd_velocity = 0;
 		// 	mb_setpoints.turn_velocity = 0;
 		// }
-		double xhat = 8;
+		double xhat = 9;
 		double a = 0;
 		double b = 0;
 		double V0 = 10;
-		double L = 11;
-		double Vmax = 28;
+		double L = 11.3;
+		double Vmax = 27;
 		if(fabs(mb_odometry.x)<xhat){
 			a = (Vmax - V0)/sqrt(xhat);
 			mb_setpoints.fwd_velocity   = a*sqrt(mb_odometry.x) + V0;

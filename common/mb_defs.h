@@ -52,6 +52,20 @@
 #define D2_DEN_LEN		2
 #define THETA_REF_MAX		0.33
 
+
+// inner loop controller
+#define D1_KP			-6.0
+#define D1_KI			-20.0
+#define D1_KD			-0.07
+#define D1_WC			180
+
+// outer loop controller
+#define D2_KP			0.005
+#define D2_KI			0.0
+#define D2_KD			0.003
+#define D2_WC			6
+
+
 // steering controller
 #define D3_KP			1.0
 #define D3_KI			0.0
