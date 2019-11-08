@@ -30,6 +30,12 @@ static rc_filter_t D1 = RC_FILTER_INITIALIZER;
 static rc_filter_t D2 = RC_FILTER_INITIALIZER;
 static rc_filter_t D3 = RC_FILTER_INITIALIZER;
 double X_offset;
+long int t;
+double theta_ref;
+double phi_ref;
+double gamma_ref;
+double setpoint;
+
 
 /*******************************************************************************
 * int main() 
@@ -220,9 +226,9 @@ int main(){
 
 	// start printf_thread if running from a terminal
 	// if it was started as a background process then don't bother
-	printf("starting print thread... \n");
-	pthread_t  printf_thread;
-	rc_pthread_create(&printf_thread, printf_loop, (void*) NULL, SCHED_OTHER, 0);
+	// printf("starting print thread... \n");
+	// pthread_t  printf_thread;
+	// rc_pthread_create(&printf_thread, printf_loop, (void*) NULL, SCHED_OTHER, 0);
 
 	//start control thread
 	printf("starting setpoint thread... \n");
@@ -293,6 +299,11 @@ int main(){
 	printf("we are running!!!...\n");
 	// done initializing so set state to RUNNING
 	rc_set_state(RUNNING); 
+	t= 0;
+	theta_ref=0.0;
+	phi_ref = 0.0;
+	gamma_ref=0.0;
+	setpoint = 0.0;
 
 	// Keep looping until state changes to EXITING
 	while(rc_get_state()!=EXITING){
@@ -328,7 +339,18 @@ int main(){
 *
 *******************************************************************************/
 void balancebot_controller(){
-
+	t++;
+	// if(t%500==0){
+	// 	if(t%1000==0)
+	// 		phi_ref = 0.1;
+	// 	else
+	// 	 	phi_ref = 0;
+	// }
+	if(t>500){
+		gamma_ref = M_PI/2;
+	}
+	setpoint = 2*phi_ref/WHEEL_DIAMETER;
+	
 	static int inner_saturation_counter = 0;
 	//lock state mutex
 	pthread_mutex_lock(&state_mutex);
@@ -358,7 +380,7 @@ void balancebot_controller(){
 	*************************************************************/
 	//double d2_u = rc_filter_march(&D2,0-mb_state.phi);
 	if(fabs(mb_setpoints.fwd_velocity) > 0.001) mb_setpoints.phi += mb_setpoints.fwd_velocity *DT;
-	double d2_u = rc_filter_march(&D2,mb_setpoints.phi-mb_state.phi);
+	double d2_u = rc_filter_march(&D2,setpoint-mb_state.phi);
 
 	/************************************************************
 	* INNER LOOP ANGLE Theta controller D1
@@ -370,7 +392,7 @@ void balancebot_controller(){
 	//else d2_u_offset -= 0.01;
 	
 	double d1_u = rc_filter_march(&D1,X_offset+d2_u_offset);
-
+	//double d1_u = rc_filter_march(&D1, theta_ref-mb_state.theta);
 	if(fabs(d1_u)>0.95) inner_saturation_counter++;
 	else inner_saturation_counter = 0;
 	// if saturate for a second, disarm for safety
@@ -387,7 +409,8 @@ void balancebot_controller(){
 	***********************************************************/
 	
 	if(fabs(mb_setpoints.turn_velocity)>0.0001) mb_setpoints.gamma += mb_setpoints.turn_velocity * DT;
-	double d3_u = rc_filter_march(&D3,mb_setpoints.gamma - mb_state.gamma);
+	//double d3_u = rc_filter_march(&D3,mb_setpoints.gamma - mb_state.gamma);
+	double d3_u = rc_filter_march(&D3, gamma_ref - mb_state.gamma);
 
 	/**********************************************************/
     // Update odometry 
@@ -422,8 +445,9 @@ void balancebot_controller(){
 	mb_state.opti_roll = tb_array[0];
 	mb_state.opti_pitch = -tb_array[1]; //xBee quaternion is in Z-down, need Z-up
 	mb_state.opti_yaw = -tb_array[2];   //xBee quaternion is in Z-down, need Z-up
-	
-	
+	//printf("%f, %f\n", phi_ref, mb_state.phi*WHEEL_DIAMETER/2.);
+	printf("%f, %f\n", gamma_ref, mb_state.gamma);
+
    	//unlock state mutex
     pthread_mutex_unlock(&state_mutex);
 
