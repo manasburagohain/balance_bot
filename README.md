@@ -27,6 +27,8 @@ Source code for The Robot Control Library is in the folder `~/Install/librobotco
 - run `test_motors.c` to test the motor standalone
 - `balancebot/balancebot.c` is the main code which starts two threads, and attaches the `balancebot_controller()` function to the IMU interrupt.
 
+Check the [final report](https://github.com/manasburagohain/balancebot/blob/master/report/balancebot.pdf) for detailed explanation and results.
+
 ### Directories and Codebase 
 
 | Files                             | Description   |
