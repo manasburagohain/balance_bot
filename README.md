@@ -15,7 +15,7 @@ A project for ROB 550: Robotics Systems Lab course taught in University of Michi
 
 
 The control architecture can be explained by the following figure: 
-<img src="fullcontrol.PNG" width="500">
+<img src="fullcontrol.png" width="500">
 
 ### Dependencies
 #### libroboticscape
