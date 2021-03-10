@@ -14,7 +14,8 @@ A project for ROB 550: Robotics Systems Lab course taught in University of Michi
 - Use of Beaglebone with Robot Control Library in C for soft real-time control
 
 
-The control architecture can be explained by the following figure: 
+The control architecture can be explained by the following figure:
+
 <img src="fullcontrol.png" width="500">
 
 ### Dependencies
